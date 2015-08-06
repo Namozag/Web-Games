@@ -1,0 +1,400 @@
+<!--
+Planets attack game v 0.2.1
+by Hany.ahmed@itworx
+www.namozag.com
+-->
+<!doctype html>
+<html>
+	<head>
+	<title>Planets attack</title>
+		<style>
+			* {
+				font-family: consolas;
+				margin: 0;
+				padding: 0;
+			}
+			#gameCanvas {
+				border:0px solid #FF00FF;
+				cursor: none;
+			}
+			
+		</style>
+	</head>
+	<body bgcolor="black">
+		<canvas id="gameCanvas" width="400" height="400">
+			You're using a 1/2 com browser, please use chrome or firefox
+		</canvas>
+	</body>
+	
+	<script>
+		var canvas = document.getElementById("gameCanvas");
+		var context = canvas.getContext("2d");
+		
+		initCanvas = function() {
+			canvas.width = window.innerWidth-3;
+			canvas.height = window.innerHeight-7;
+		}
+		
+		initWorld = function() {
+			world.width = canvas.width;
+			world.height = canvas.height;
+			world.ratio = canvas.width / 50;
+		}
+		
+		window.onload = window.onresize = function() {
+			initCanvas();
+			initWorld();
+			initPlanets();
+		}
+		
+		var world = new Object();
+		var planets = null;
+		initWorld();
+		
+		var instructions = [
+			"The objective is to destroy all planets",
+			"If you touched another planet you'd loose a life",
+			"click while moving toactivate your power",
+			"In the powered mode you can destroy another planets",
+			"game 'd over if you lost your power"
+		]
+		
+		var game = {
+			status : 0,
+			startTime : null,
+			time : 0,
+			powerMax : 1000,
+			power : 1000,
+			powerOn : false,
+			progress : 0,
+			score : 0,
+			level : 1,
+			frame : 0,
+			minPlanetSize : 10,
+			style : {
+				bg : "#000000",
+				color : "#FFFFFF"
+			}
+		};
+
+		function planet(id, color, radius) {
+			this.id = id;
+			this.color = color;
+			this.radius = radius * world.ratio;
+			this.x = r();
+			this.y = r();
+			this.up = this.y > world.y;
+			this.right = this.x < 0;
+		}
+		
+		
+		function goFullScreen(){
+			var canvas = document.getElementById("gameCanvas");
+			if(canvas.requestFullScreen)
+				canvas.requestFullScreen();
+			else if(canvas.webkitRequestFullScreen)
+				canvas.webkitRequestFullScreen();
+			else if(canvas.mozRequestFullScreen)
+				canvas.mozRequestFullScreen();
+		}
+		//goFullScreen();
+		
+		function r() {
+			var r = Math.round(Math.random() * 1000);
+			return r%2 == 0 ? r : -r;
+		}
+		//var moon = new planet("", "#FFFFFF", 1);
+		//moon.radius = 5;
+		function initPlanets() {
+			planets = [
+				new planet("Earth"		, "#FFFFFF", 4),
+				new planet("Mercury"	, "#FFFFCC", 5),
+				new planet("Venus"		, "#FFCCFF", 3),
+				new planet("Mars"		, "#FFCCCC", 3),
+				new planet("Jupiter"	, "#CCFFFF", 2),
+				new planet("Saturn"	, "#CCFFCC", 2),
+				new planet("Uranus"	, "#CCCCFF", 2),
+				new planet("Neptune"	, "#CCCCCC", 1),
+				new planet("Pluto"		, "#CCAACC", 2),
+				new planet("+" , "#FFFFFF", 1),
+				new planet("+" , "#FFFFFF", 1),
+				new planet("*" , "#FF0000", 1)
+			]
+		}
+		
+		initPlanets();
+		
+		animateFunc = function animate() {
+			if(game.status < 10) {
+				game.time = new Date() - game.startTime;
+			}
+			update();
+			draw();			
+		}
+		
+		doneFunc = function() {
+			// score
+			if(game.power > 0) {
+				game.power-=3;
+				game.score+=3;
+			} else if(planets[0].radius > 0) {
+				planets[0].radius-=2;
+				game.score+=2;
+			} else {
+				game.status = 22;
+			}
+			game.power = 0;
+			draw();
+		}
+		
+		// Update
+		function update() {
+			
+			// Power
+			if(game.powerOn) {
+				if(game.power > 0) {
+					game.power--;
+					var f = game.time / 1000;
+					//moon.x = (planets[0].x + world.width/2  ) * Math.sin(f % 180);
+					//moon.y = (planets[0].y + world.height/2 ) * Math.cos(f % 180);
+				} else {
+					game.powerOn = false;
+				}
+			}
+		
+			game.progress = 0;
+			for(i=1; i<planets.length; i++) {
+			
+				var planet = planets[i];
+				// progress is the sum of all radiuses of all planets
+				game.progress += planet.radius;
+				
+				if(planet.radius < game.minPlanetSize) {
+					planet.radius = 0;
+				}
+			
+				planet.up ? planet.y-- : planet.y++;
+				planet.right ? planet.x++ : planet.x--;
+				
+				if(planet.x + planet.radius > world.width) planet.right = false;
+				else if(planet.x < planet.radius) planet.right = true;
+				
+				if(planet.y + planet.radius > world.height) planet.up = true;
+				else if(planet.y < planet.radius) planet.up = false;
+				
+				// Collision detection
+				for(j=0; j<planets.length && i != j && game.status < 20; j++) {
+					var iplanet = planets[j];
+					var ly = planet.y - iplanet.y;
+					if(ly < 0) ly = ly * -1;
+					var lx = planet.x - iplanet.x;
+					if(lx < 0) lx = lx * -1;
+					var l = Math.sqrt(ly*ly + lx*lx);
+					//console.log(planet.radius + iplanet.radius + " : " + l);
+					if(l <= planet.radius + iplanet.radius && planet.radius > 0 && iplanet.radius > 0) {
+						//console.log("COLLISSION " + planet.id + "-" + iplanet.id);
+						
+						//var tempColor = planet.color;
+						//planet.color = iplanet.color;
+						//iplanet.color = tempColor;
+						
+						if(planet.up == iplanet.up) {
+							planet.right = ! planet.right;
+							iplanet.right = ! iplanet.right;
+						}
+						else if(planet.right == iplanet.right) {
+							planet.up = ! planet.up;
+							iplanet.up = ! iplanet.up;
+						} else {
+							planet.up = ! planet.up;
+							planet.right = ! planet.right;
+							iplanet.up = ! iplanet.up;
+							iplanet.right = ! iplanet.right;
+						}
+						
+						if(iplanet.id == planets[0].id) {
+							console.log("HIT " + planet.id);
+							if(game.powerOn) {
+								planet.radius--;
+							} else {
+								if(planet.id == "+") {
+									planets[0].radius+=2;
+									planet.radius--;
+								} else if(planet.id == "*") {
+									game.power+=5;
+									planet.radius--;
+								} else {
+									planets[0].radius--;
+									if(planets[0].radius < game.minPlanetSize) {
+										game.status = 11;
+									}
+								}
+							}
+						}
+					}
+					
+				}
+				
+			}
+			
+			if(game.progress == 0) {
+				game.status = 21;
+				game.powerOn = false;
+				done();
+			} else if(game.power == 0) {
+				game.status = 12;
+			}
+			
+		}
+		
+		// Draw
+		function draw() {
+			game.frame++;
+		
+			context.fillStyle = game.style.bg;
+			context.fillRect(0, 0, 2000, 2000);
+		
+			//context.fillRect(x++, 10, 100, 100);
+			for(i=0; i<planets.length; i++) {
+				if(planets[i].radius > 0) {
+					context.fillStyle = planets[i].color;
+					context.strokeStyle = game.style.color;;
+					context.lineWidth = 4;
+					if(i == 0) {
+						if(game.powerOn) {
+							//context.fillStyle = moon.color;
+							//context.beginPath();
+							//context.arc(moon.x, moon.y, moon.radius, 0, 2*Math.PI);
+							//context.stroke();
+							//context.fill();
+							
+							context.strokeStyle = (game.time % 2 == 0)? "#FF0000" : "#440000";
+						}
+						context.lineWidth = 8;
+					}
+					context.beginPath();
+					context.arc(planets[i].x, planets[i].y, planets[i].radius, 0, 2*Math.PI);
+					context.stroke();
+					context.fill();
+					context.fillStyle = game.style.bg;
+					context.font="10px consolas";
+					context.fillText(planets[i].id, planets[i].x - world.ratio, planets[i].y)
+				}
+			}
+			
+			// draw time
+			context.fillStyle = game.style.color;
+			context.font="12px consolas";
+			context.fillText("Level: " + game.level + " | score: " + game.score + " | time: " + game.time + " | " +
+			Math.round(planets[0].radius), 20, 20)
+			
+			
+			
+			// draw life
+			context.fillStyle = "#00FF00";
+			context.fillRect(world.width-20, 10, 10, planets[0].radius);
+			
+			// draw power
+			context.fillStyle = "#FF0000";
+			context.fillRect(world.width-20, 240, 10, game.power/4);
+			
+			// status
+			var text = "";
+			var text2 = "";
+			switch(game.status) {
+				case 0: text = "بlaنets Aتّacك! v0.2.1"		;	text2 = "Click to start"; break;
+				case 11: text = "Game over :("		; 	text2 = "Click to play again"; break;
+				case 12: text = "Power Lost :("		; 	text2 = "Click to play again"; break;
+				case 21: text = "Planet survived :)";   text2 = "Score: " + game.score; break;
+				case 22: text = "Planet survived :)"; 	text2 = "Click for Next level"; break;
+			}
+			context.fillStyle = game.style.color;
+			context.font="30px consolas";
+			context.fillText(text, world.width/3, world.height/2)
+			context.font="18px consolas";
+			context.fillText(text2, world.width/3, world.height/2 + 40)
+			
+			context.font="14px consolas";
+			text3 = instructions[Math.round((new Date().getTime() / 5000) % instructions.length)];
+			if(text3)
+				context.fillText(text3, 10, world.height - 20 );
+			
+		}
+		
+		function getMousePosition(canvas, event) {
+			var rect = canvas.getBoundingClientRect();
+			return {
+				x: event.clientX - rect.left,
+				y: event.clientY - rect.top
+			};
+		}
+		
+		
+		update();
+		draw();
+		
+		var playInterval = null;
+		var doneInterval = null;
+		function play() {
+			window.clearInterval(doneInterval);
+			window.clearInterval(playInterval);
+			playInterval = setInterval(animateFunc, 5);
+			game.startTime = new Date();
+		}
+		
+		function done() {
+			window.clearInterval(playInterval);
+			doneInterval = setInterval(doneFunc, 30);
+		}
+		
+		canvas.addEventListener('mousemove', function(event) {
+			if(game.status < 10) {
+				var p = getMousePosition(canvas, event);
+				//console.log("mouse: " + p.x + " - " + p.y);
+				
+				if(p.x < planets[0].radius) p.x = planets[0].radius;
+				if(p.y < planets[0].radius) p.y = planets[0].radius;
+				
+				if(p.x > world.width - planets[0].radius) p.x = world.width - planets[0].radius;
+				if(p.y > world.height - planets[0].radius) p.y = world.height - planets[0].radius;
+				
+				planets[0].x = p.x;
+				planets[0].y = p.y;
+				draw();
+			}
+		}, false)
+		
+		canvas.addEventListener('click', function(event) {
+			if(game.status == 0) {
+				game.status = 1;
+				play();
+			} else if(game.status == 22) {
+				game.status = 1;
+				game.powerMax -= 50;
+				game.power = game.powerMax;
+				game.level++;
+				initPlanets();
+				play();
+			} else if(game.status > 10 && game.status < 20) {
+				initGame();
+				initCircles();
+				game.status = 1;
+				play();
+			}
+		}, false)
+		
+		canvas.addEventListener('mousedown', function(event) {
+			if(game.status == 1 && game.power > 0) {
+				game.powerOn = true;
+			}
+		}, false)
+		
+		canvas.addEventListener('mouseup', function(event) {
+			if(game.status == 1) {
+				game.powerOn = false;
+			}
+		}, false)
+		
+	</script>
+	
+</html>
